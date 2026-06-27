@@ -1,14 +1,26 @@
 package editor
 
-import "github.com/hbaldwin98/tui-writer/input"
+import (
+	"github.com/charmbracelet/bubbles/textarea"
+	"github.com/hbaldwin98/tui-writer/input"
+)
 
 type Editor struct {
-	mode input.InputMode
+	mode     input.InputMode
+	TextArea textarea.Model
+	FilePath string
+	Modified bool
 }
 
 func New() Editor {
+	ta := textarea.New()
+	ta.Focus()
+	ta.Placeholder = "Start typing..."
+	ta.ShowLineNumbers = true
+
 	return Editor{
-		mode: input.ModeInsert,
+		TextArea: ta,
+		mode:     input.ModeInsert,
 	}
 }
 
