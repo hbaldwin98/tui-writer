@@ -67,6 +67,7 @@ func (m model) View() string {
 
 	contentHeight := max(0, m.height-lipgloss.Height(header)-lipgloss.Height(footer))
 	editorWidth := min(m.width, m.editorWidth)
+
 	m.editor.Resize(editorWidth, contentHeight)
 
 	content := lipgloss.NewStyle().
@@ -85,12 +86,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+q":
-			return m, tea.Quit
-		case "ctrl+s":
-			m.saveErr = m.editor.Save()
-			return m, nil
+		if action, ok := m.editor.Keymap[msg.String()]; ok {
+			switch action {
+			case input.ActionQuit:
+				return m, tea.Quit
+			case input.ActionSave:
+				m.saveErr = m.editor.Save()
+				return m, nil
+			}
 		}
 	case tea.WindowSizeMsg:
 		m.width = msg.Width

@@ -12,6 +12,7 @@ import (
 type Editor struct {
 	mode     input.InputMode
 	TextArea textarea.Model
+	Keymap   input.Keymap
 	FilePath string
 	Modified bool
 }
@@ -27,13 +28,17 @@ func New() Editor {
 	return Editor{
 		TextArea: ta,
 		mode:     input.ModeInsert,
+		Keymap:   input.DefaultKeymap,
 	}
 }
 
+// TODO: implement this
 func (e *Editor) SetInputMode(mode input.InputMode) {
 	e.mode = mode
 }
 
+// TODO: Show the error to the end user. Store it somewhere/pop a message.
+// TODO: Allow the user to name the newly created file BEFORE they save it. Otherwise save to the opened file.
 func (e *Editor) Save() error {
 	filePath := e.FilePath
 	if e.FilePath == "" {
