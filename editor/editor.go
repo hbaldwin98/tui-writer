@@ -12,15 +12,6 @@ import (
 	"github.com/hbaldwin98/tui-writer/input"
 )
 
-type E interface {
-	Load(path string) error
-	Save() error
-	Modified() bool
-	FilePath() string
-	SetKeymap(keymap input.Keymap)
-	GetAction(key string) (input.Action, bool)
-}
-
 type Editor struct {
 	mode        input.InputMode
 	textArea    textarea.Model
@@ -66,13 +57,18 @@ func (e *Editor) Save() error {
 }
 
 func (e *Editor) Load(filePath string) error {
-	contents, err := os.ReadFile(e.filePath)
+	contents, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
 
 	e.filePath = filePath
 	e.textArea.SetValue(string(contents))
+	// When we set the contents, the cursor is pushed all the way to the bottom.
+	// TextArea supports going back to the beginning using Ctrl+Home, so we can
+	// make use of this to push the view to the top before we render anything
+	e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyCtrlHome})
+	e.modified = false
 
 	return nil
 }

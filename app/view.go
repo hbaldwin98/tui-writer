@@ -8,10 +8,20 @@ func (m model) View() string {
 		Width(m.width).
 		Render(m.editor.Title())
 
-	footer := lipgloss.NewStyle().
-		Align(lipgloss.Center).
+	statusStyle := lipgloss.NewStyle().
 		Width(m.width).
-		Render("")
+		Align(lipgloss.Center)
+
+	switch m.status.kind {
+	case StatusError:
+		statusStyle = statusStyle.Foreground(lipgloss.Color("9"))
+	case StatusInfo:
+		statusStyle = statusStyle.Foreground(lipgloss.Color("10"))
+	default:
+		break
+	}
+
+	footer := statusStyle.Render(m.status.text)
 
 	content := lipgloss.NewStyle().
 		Width(m.width).

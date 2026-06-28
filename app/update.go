@@ -18,7 +18,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case input.ActionQuit:
 				return m, tea.Quit
 			case input.ActionSave:
-				m.saveErr = m.editor.Save()
+				err := m.editor.Save()
+				if err != nil {
+					m.setStatus(StatusError, err.Error())
+					return m, nil
+				}
+
+				m.setStatus(StatusInfo, "Saved...")
 				return m, nil
 			case input.ActionPreview:
 				m.editor.TogglePreview()
