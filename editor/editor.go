@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -20,6 +21,7 @@ type Editor struct {
 	filePath    string
 	modified    bool
 	preview     bool
+	pendingKey  string
 }
 
 func New() Editor {
@@ -102,6 +104,8 @@ func (e Editor) FilePath() string {
 // TODO: implement this feature
 func (e *Editor) SetInputMode(mode input.InputMode) {
 	e.mode = mode
+	e.pendingKey = ""
+	e.textArea.Cursor.Blink = mode == input.ModeInsert
 }
 
 func (e *Editor) SetKeymap(km input.Keymap) {
@@ -109,11 +113,91 @@ func (e *Editor) SetKeymap(km input.Keymap) {
 }
 
 func (e Editor) GetAction(key string) (input.Action, bool) {
-	if action, ok := e.keymap[key]; ok {
+	modeKeymap, ok := e.keymap[e.mode]
+	if !ok {
+		return input.ActionNone, false
+	}
+
+	if action, ok := modeKeymap[key]; ok {
 		return action, ok
 	}
 
 	return input.ActionNone, false
+}
+
+func (e Editor) hasBindingPrefix(prefix string) bool {
+	modeKeymap, ok := e.keymap[e.mode]
+	if !ok {
+		return false
+	}
+
+	for key := range modeKeymap {
+		if key != prefix && strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (e *Editor) ResolveAction(key string) (input.Action, bool, bool) {
+	if e.pendingKey != "" {
+		key = e.pendingKey + key
+		e.pendingKey = ""
+	}
+
+	action, ok := e.GetAction(key)
+	if !ok {
+		if e.hasBindingPrefix(key) {
+			e.pendingKey = key
+			return input.ActionNone, false, true
+		}
+
+		return input.ActionNone, false, false
+	}
+
+	if e.hasBindingPrefix(key) {
+		e.pendingKey = key
+		return input.ActionNone, false, true
+	}
+
+	return action, true, false
+}
+
+func (e *Editor) HandleAction(action input.Action) tea.Cmd {
+	var cmd tea.Cmd
+	switch action {
+	case input.ActionInsertMode, input.ActionInsertModeNext, input.ActionInsertModeAbove, input.ActionInsertModeBelow:
+		e.enterInsertMode(action)
+	case input.ActionNormalMode:
+		e.SetInputMode(input.ModeNormal)
+	case input.ActionMoveUp:
+		e.textArea.CursorUp()
+	case input.ActionMoveDown:
+		e.textArea.CursorDown()
+	case input.ActionMoveLeft:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	case input.ActionMoveRight:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyRight})
+	case input.ActionNextWord:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyRight, Alt: true})
+	case input.ActionPreviousWord:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyLeft, Alt: true})
+	case input.ActionEndOfWord:
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyRight})
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyRight, Alt: true})
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	case input.ActionStartOfLine:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyHome})
+	case input.ActionEndOfLine:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	case input.ActionStartOfFile:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyCtrlHome})
+	case input.ActionEndOfFile:
+		e.textArea, cmd = e.textArea.Update(tea.KeyMsg{Type: tea.KeyCtrlEnd})
+	}
+
+	return cmd
 }
 
 func (e Editor) View() string {
@@ -169,6 +253,52 @@ func (e *Editor) Update(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 
+	switch e.mode {
+	case input.ModeInsert:
+		return e.handleModeInsert(msg)
+	case input.ModeNormal:
+		return e.handleModeNormal(msg)
+	default:
+		return nil
+	}
+}
+
+func (e *Editor) enterInsertMode(action input.Action) {
+	switch action {
+	case input.ActionInsertModeNext:
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyRight})
+	case input.ActionInsertModeAbove:
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyHome})
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		e.textArea.CursorUp()
+		e.modified = true
+	case input.ActionInsertModeBelow:
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyEnd})
+		e.textArea, _ = e.textArea.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		e.modified = true
+	}
+
+	e.SetInputMode(input.ModeInsert)
+}
+
+func (e *Editor) handleModeNormal(msg tea.Msg) tea.Cmd {
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return nil
+	}
+
+	action, ok, waiting := e.ResolveAction(keyMsg.String())
+	if waiting {
+		return nil
+	}
+	if !ok {
+		return nil
+	}
+
+	return e.HandleAction(action)
+}
+
+func (e *Editor) handleModeInsert(msg tea.Msg) tea.Cmd {
 	previous := e.textArea.Value()
 
 	var cmd tea.Cmd

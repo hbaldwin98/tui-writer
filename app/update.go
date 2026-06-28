@@ -13,7 +13,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if action, ok := m.editor.GetAction(msg.String()); ok {
+		if action, ok, waiting := m.editor.ResolveAction(msg.String()); waiting {
+			return m, nil
+		} else if ok {
 			switch action {
 			case input.ActionQuit:
 				return m, tea.Quit
@@ -29,6 +31,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case input.ActionPreview:
 				m.editor.TogglePreview()
 				return m, nil
+			default:
+				return m, m.editor.HandleAction(action)
 			}
 		}
 	case tea.WindowSizeMsg:
