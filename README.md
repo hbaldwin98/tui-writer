@@ -9,6 +9,7 @@ simple interface.
 - File history (individual lines changed per save). Kind of like git for your file.
 - Autosaving after a period of time
 - VIM Mode (wip)
+  - TODO: Copy, Paste, Yank, Delete, Visual Mode
 - Configurable options
   - Autosave intervals
   - Editor Width

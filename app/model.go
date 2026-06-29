@@ -3,6 +3,7 @@ package app
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,6 +15,17 @@ const (
 	defaultEditorWidth = 88
 	maxStatusHistory   = 100
 )
+
+type clearStatusMsg struct{}
+
+// Naive way to clear status. Should have it be a little more aware
+// in the model so that we don't override a status we actually want
+// if one comes in AFTER we call this
+func clearStatusAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(time.Time) tea.Msg {
+		return clearStatusMsg{}
+	})
+}
 
 type model struct {
 	editor *editor.Editor
@@ -76,6 +88,14 @@ func (m *model) setStatus(kind statusKind, text string) {
 	}
 }
 
+func (m *model) clearStatus() {
+	m.status = statusMessage{}
+}
+
 func (m model) Init() tea.Cmd {
+	if m.status.text != "" {
+		return tea.Batch(textarea.Blink, clearStatusAfter(3*time.Second))
+	}
+
 	return textarea.Blink
 }

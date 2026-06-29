@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/hbaldwin98/tui-writer/input"
@@ -13,9 +15,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if action, ok, waiting := m.editor.ResolveAction(msg.String()); waiting {
-			return m, nil
-		} else if ok {
+		if action, ok := m.editor.ResolveAction(msg.String()); ok {
 			switch action {
 			case input.ActionQuit:
 				return m, tea.Quit
@@ -23,11 +23,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				err := m.editor.Save()
 				if err != nil {
 					m.setStatus(StatusError, err.Error())
-					return m, nil
+					return m, clearStatusAfter(time.Second)
 				}
 
 				m.setStatus(StatusInfo, "Saved...")
-				return m, nil
+				return m, clearStatusAfter(time.Second)
 			case input.ActionPreview:
 				m.editor.TogglePreview()
 				return m, nil
@@ -39,6 +39,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.editor.Resize(m.currentEditorWidth(), m.contentHeight())
+	case clearStatusMsg:
+		m.clearStatus()
 	}
 
 	cmd := m.editor.Update(msg)

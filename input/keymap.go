@@ -11,7 +11,6 @@ var DefaultKeymap = Keymap{
 		"ctrl+p": ActionPreview,
 		"ctrl+h": ActionHelp,
 		"esc":    ActionCancel,
-		"enter":  ActionConfirm,
 	},
 	ModeNormal: {
 		"ctrl+s":    ActionSave,
